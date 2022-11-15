@@ -34,6 +34,19 @@ func NewDatabase(opt *Options) *Database {
 		log.Fatalln(err)
 	}
 
+	ddl := `
+        PRAGMA journal_mode = OFF;
+		PRAGMA synchronous = 0;
+		PRAGMA cache_size = 1000000;
+-- 		PRAGMA locking_mode = EXCLUSIVE;
+		PRAGMA temp_store = MEMORY;
+    `
+
+	_, err = db.Exec(ddl)
+	if err != nil {
+		return nil
+	}
+
 	return &Database{db}
 }
 
@@ -76,4 +89,34 @@ func (db *Database) GetContentInDir(dir string) ([]model.Contents, error) {
 	}
 
 	return contents, nil
+}
+
+func (db *Database) Delete(table Table, id int32) error {
+	stmt := table.DELETE().WHERE(RawInt("id").EQ(Int32(id)))
+
+	_, err := stmt.Exec(db.DB)
+	return err
+}
+
+func (db *Database) DeleteMany(table Table, ids []int32) error {
+	stmt := table.DELETE().WHERE(RawInt("id").IN(InInt(ids)...))
+
+	_, err := stmt.Exec(db.DB)
+	return err
+}
+
+func (db *Database) Count(table Table) (int32, error) {
+	var count int32
+	stmt := table.SELECT(COUNT(RawInt("id")))
+
+	err := stmt.Query(db.DB, &count)
+	return count, err
+}
+
+func InInt(ids []int32) []Expression {
+	var ids2 []Expression
+	for _, id := range ids {
+		ids2 = append(ids2, Int32(id))
+	}
+	return ids2
 }

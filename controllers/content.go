@@ -16,7 +16,7 @@ func (control *Controller) ContentSearchAnswer(w http.ResponseWriter, r *http.Re
 		log.Println(err)
 		return
 	}
-	content.From = &r.RemoteAddr
+	content.From = r.RemoteAddr
 	control.gu.SearchW.TreeAdd(content)
 	log.Println("Searched", content.Name, content.Cid)
 }

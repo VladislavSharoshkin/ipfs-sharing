@@ -5,8 +5,8 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/cenkalti/log"
 	"ipfs-sharing/internal"
+	"log"
 	"os/exec"
 	"runtime"
 )
@@ -18,23 +18,24 @@ type DashboardWindow struct {
 
 func NewDashboardWindow(inter *internal.Internal) *DashboardWindow {
 
-	addressL := widget.NewLabel("My address: " + inter.Node.IpfsNode.Identity.String())
+	addressL := widget.NewMultiLineEntry()
+	addressL.Text = "My address: " + inter.Node.IpfsNode.Identity.String()
 
 	shareB := widget.NewButtonWithIcon("Open share folder", theme.FolderOpenIcon(), func() {
 		cmd := "open"
 		if runtime.GOOS == "windows" {
 			cmd = "explorer"
 		}
-		err := exec.Command(cmd, inter.Options.ShareDir).Start()
+		err := exec.Command(cmd, inter.Opt.ShareDir).Start()
 		if err != nil {
-			log.Errorln(err)
+			log.Println(err)
 		}
 	})
 
 	updateShareB := widget.NewButtonWithIcon("Scan share folder", theme.ViewRefreshIcon(), func() {
-		err := inter.SyncFilesAndDatabase(inter.Options.ShareDir, nil)
+		err := inter.Sync()
 		if err != nil {
-			log.Errorln(err)
+			log.Println(err)
 		}
 	})
 

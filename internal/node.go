@@ -86,12 +86,12 @@ func setupPlugins(path string) error {
 
 func (nod *Node) Upload(dir string) (cid.Cid, error) {
 
-	stat, err := os.Lstat(dir)
+	fileInfo, err := os.Lstat(dir)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
-	sf, err := files.NewSerialFile(dir, false, stat)
+	sf, err := files.NewSerialFile(dir, false, fileInfo)
 	if err != nil {
 		return cid.Cid{}, err
 	}
@@ -105,10 +105,15 @@ func (nod *Node) Upload(dir string) (cid.Cid, error) {
 		options.Unixfs.Nocopy(true),
 	}
 
+	// filestore.CorruptReferenceError
 	add, err := nod.CoreAPI.Unixfs().Add(context.Background(), sf, opts...)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
 	return add.Cid(), nil
+}
+
+func (nod *Node) Delete(cid cid.Cid) error {
+	return nod.IpfsNode.Filestore.DeleteBlock(context.Background(), cid)
 }

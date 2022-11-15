@@ -6,9 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cenkalti/rain/torrent"
-	"github.com/go-jet/jet/v2/qrm"
 	. "github.com/go-jet/jet/v2/sqlite"
-	"github.com/ipfs/go-cid"
 	files "github.com/ipfs/go-ipfs-files"
 	iface "github.com/ipfs/interface-go-ipfs-core"
 	"github.com/ipfs/interface-go-ipfs-core/path"
@@ -19,7 +17,6 @@ import (
 	"ipfs-sharing/gen/model"
 	. "ipfs-sharing/gen/table"
 	"ipfs-sharing/misk"
-	"ipfs-sharing/models"
 	"log"
 	"net/http"
 	"os"
@@ -27,12 +24,13 @@ import (
 )
 
 type Internal struct {
-	Options *Options
+	Opt     *Options
 	Node    *Node
 	DB      *Database
 	Sub     iface.PubSubSubscription
 	Cl      *http.Client
 	TorrSes *torrent.Session
+	ID      string
 }
 
 func NewInternal() *Internal {
@@ -104,7 +102,7 @@ func NewInternal() *Internal {
 	//	}
 	//}
 
-	internal := Internal{opt, node, db, sub, cl, torrSes}
+	internal := Internal{opt, node, db, sub, cl, torrSes, node.IpfsNode.Identity.String()}
 	return &internal
 }
 
@@ -118,21 +116,43 @@ func (inter *Internal) Search(query string) error {
 	return nil
 }
 
-func (inter *Internal) Download(content model.Contents) error {
-
+func (inter *Internal) Download(content model.Contents) (err error) {
 	file, err := inter.Node.CoreAPI.Unixfs().Get(context.Background(), path.New(content.Cid))
 	if err != nil {
-		return err
+		return
 	}
 
-	savePath := filepath.Join(inter.Options.ShareDir, content.Name)
+	savePath := filepath.Join(inter.Opt.ShareDir, content.Name)
 
 	err = files.WriteTo(file, savePath)
 	if err != nil {
-		return err
+		return
 	}
 
 	log.Println("Downloaded CID", content.Cid)
+
+	return
+}
+
+func (inter *Internal) DownloadContent(content model.Contents) error {
+
+	if content.Cid == "" { // if dir
+		children, err := inter.GetChildren(content.From, content.ID)
+		if err != nil {
+			return err
+		}
+		for _, child := range children {
+			err = inter.DownloadContent(child)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		err := inter.Download(content)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -148,51 +168,6 @@ func (inter *Internal) PostJson(url string, structData interface{}) (*http.Respo
 	}
 
 	return resp, err
-}
-
-func (inter *Internal) SyncFilesAndDatabase(input string, parentID *int32) error {
-	dirEntries, _ := os.ReadDir(input)
-	for _, dirEntry := range dirEntries {
-		name := input + "/" + dirEntry.Name()
-		println(name)
-
-		parentIDExpression := Contents.ParentID.IS_NULL()
-		if parentID != nil {
-			parentIDExpression = Contents.ParentID.EQ(Int32(*parentID))
-		}
-
-		stmt := SELECT(Contents.AllColumns).FROM(Contents).
-			WHERE(Contents.Name.EQ(String(dirEntry.Name())).AND(parentIDExpression)).
-			LIMIT(1)
-
-		err := stmt.Query(inter.DB.DB, &model.Contents{})
-		if err != nil && err != qrm.ErrNoRows {
-			return err
-		}
-		if err == nil {
-			return nil
-		}
-
-		uploadCid := cid.Cid{}
-		if !dirEntry.IsDir() {
-			uploadCid, err = inter.Node.Upload(name)
-			if err != nil {
-				return err
-			}
-		}
-
-		newCont := models.NewContent(dirEntry.Name(), uploadCid.String(), parentID)
-		err = inter.DB.InsertContent(&newCont)
-		if err != nil {
-			return err
-		}
-
-		if dirEntry.IsDir() {
-			inter.SyncFilesAndDatabase(name, &newCont.ID)
-		}
-	}
-
-	return nil
 }
 
 func (inter *Internal) Status() string {
@@ -228,9 +203,14 @@ func (inter *Internal) SearchMyContent(name string) (model.Contents, error) {
 }
 
 func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
-	// search for some text
+
+	parentIdExpression := Contents.ParentID.EQ(Int32(id))
+	if id == 0 {
+		parentIdExpression = Contents.ParentID.IS_NULL()
+	}
+
 	stmt := SELECT(Contents.AllColumns).FROM(Contents).
-		WHERE(Contents.ParentID.EQ(Int32(id)))
+		WHERE(parentIdExpression)
 
 	var contents []model.Contents
 	err := stmt.Query(inter.DB.DB, &contents)
@@ -239,4 +219,24 @@ func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
 	}
 
 	return contents, nil
+}
+
+func (inter *Internal) GetChildren(address string, id int32) (contents []model.Contents, err error) {
+
+	r, err := inter.PostJson(fmt.Sprint(address, "/content/children?id=", id), nil)
+	if err != nil {
+		return
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&contents)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	for i, _ := range contents {
+		contents[i].From = address
+	}
+
+	return
 }

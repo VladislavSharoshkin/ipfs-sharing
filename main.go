@@ -16,6 +16,7 @@ func main() {
 	control := controllers.NewController(gu, inter)
 	http.HandleFunc("/search/answer", control.ContentSearchAnswer)
 	http.HandleFunc("/content/children", control.GetChildren)
+	http.HandleFunc("/message/new", control.NewMessage)
 	go func() {
 		for {
 			mes, err := inter.Sub.Next(context.Background())
@@ -27,7 +28,6 @@ func main() {
 			if mes.From() == inter.Node.IpfsNode.Identity {
 				continue
 			}
-
 			control.SearchDht(mes)
 		}
 	}()

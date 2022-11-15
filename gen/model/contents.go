@@ -8,9 +8,12 @@
 package model
 
 type Contents struct {
-	ID       int32 `sql:"primary_key"`
-	Name     string
-	Cid      string
-	ParentID *int32
-	From     *string
+	ID        int32 `sql:"primary_key"`
+	Name      string
+	Cid       string
+	ParentID  *int32
+	Path      string
+	Status    string
+	From      string
+	CreatedAt string
 }

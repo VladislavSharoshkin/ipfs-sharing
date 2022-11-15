@@ -17,11 +17,14 @@ type contentsTable struct {
 	sqlite.Table
 
 	//Columns
-	ID       sqlite.ColumnInteger
-	Name     sqlite.ColumnString
-	Cid      sqlite.ColumnString
-	ParentID sqlite.ColumnInteger
-	From     sqlite.ColumnString
+	ID        sqlite.ColumnInteger
+	Name      sqlite.ColumnString
+	Cid       sqlite.ColumnString
+	ParentID  sqlite.ColumnInteger
+	Path      sqlite.ColumnString
+	Status    sqlite.ColumnString
+	From      sqlite.ColumnString
+	CreatedAt sqlite.ColumnString
 
 	AllColumns     sqlite.ColumnList
 	MutableColumns sqlite.ColumnList
@@ -62,24 +65,30 @@ func newContentsTable(schemaName, tableName, alias string) *ContentsTable {
 
 func newContentsTableImpl(schemaName, tableName, alias string) contentsTable {
 	var (
-		IDColumn       = sqlite.IntegerColumn("id")
-		NameColumn     = sqlite.StringColumn("name")
-		CidColumn      = sqlite.StringColumn("cid")
-		ParentIDColumn = sqlite.IntegerColumn("parent_id")
-		FromColumn     = sqlite.StringColumn("from")
-		allColumns     = sqlite.ColumnList{IDColumn, NameColumn, CidColumn, ParentIDColumn, FromColumn}
-		mutableColumns = sqlite.ColumnList{NameColumn, CidColumn, ParentIDColumn, FromColumn}
+		IDColumn        = sqlite.IntegerColumn("id")
+		NameColumn      = sqlite.StringColumn("name")
+		CidColumn       = sqlite.StringColumn("cid")
+		ParentIDColumn  = sqlite.IntegerColumn("parent_id")
+		PathColumn      = sqlite.StringColumn("path")
+		StatusColumn    = sqlite.StringColumn("status")
+		FromColumn      = sqlite.StringColumn("from")
+		CreatedAtColumn = sqlite.StringColumn("created_at")
+		allColumns      = sqlite.ColumnList{IDColumn, NameColumn, CidColumn, ParentIDColumn, PathColumn, StatusColumn, FromColumn, CreatedAtColumn}
+		mutableColumns  = sqlite.ColumnList{NameColumn, CidColumn, ParentIDColumn, PathColumn, StatusColumn, FromColumn, CreatedAtColumn}
 	)
 
 	return contentsTable{
 		Table: sqlite.NewTable(schemaName, tableName, alias, allColumns...),
 
 		//Columns
-		ID:       IDColumn,
-		Name:     NameColumn,
-		Cid:      CidColumn,
-		ParentID: ParentIDColumn,
-		From:     FromColumn,
+		ID:        IDColumn,
+		Name:      NameColumn,
+		Cid:       CidColumn,
+		ParentID:  ParentIDColumn,
+		Path:      PathColumn,
+		Status:    StatusColumn,
+		From:      FromColumn,
+		CreatedAt: CreatedAtColumn,
 
 		AllColumns:     allColumns,
 		MutableColumns: mutableColumns,

@@ -9,7 +9,6 @@ import (
 	"github.com/cenkalti/rain/torrent"
 	"ipfs-sharing/gui/elements"
 	"ipfs-sharing/internal"
-	"log"
 	"time"
 )
 
@@ -19,7 +18,7 @@ type Gui struct {
 	CurW    fyne.Window
 	TorrW   *TorrentWindow
 	DashW   *DashboardWindow
-	chatW   *ChatWindow
+	ChatW   *ChatWindow
 }
 
 func MakeGui(inter *internal.Internal) *Gui {
@@ -42,11 +41,7 @@ func MakeGui(inter *internal.Internal) *Gui {
 
 	toolbar := widget.NewToolbar(
 		widget.NewToolbarAction(theme.ViewRefreshIcon(), func() {
-			err := inter.SyncFilesAndDatabase(inter.Options.ShareDir, nil)
-			if err != nil {
-				log.Println(err)
-				return
-			}
+
 		}),
 		widget.NewToolbarSpacer(),
 		peersL,
@@ -71,6 +66,7 @@ func MakeGui(inter *internal.Internal) *Gui {
 		container.NewTabItem("Chat", chatW.Cont),
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
+
 	content := container.NewBorder(toolbar, nil, nil, nil, tabs)
 	w.SetContent(content)
 
