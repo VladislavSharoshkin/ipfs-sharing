@@ -7,13 +7,10 @@
 
 package model
 
-type Contents struct {
+type Messages struct {
 	ID        int32 `sql:"primary_key"`
-	Name      string
-	Cid       string
-	ParentID  *int32
-	Dir       *string
-	Status    string
+	Text      string
 	From      string
+	To        string
 	CreatedAt string
 }

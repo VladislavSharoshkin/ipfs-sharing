@@ -9,6 +9,7 @@ import (
 	"github.com/cenkalti/rain/torrent"
 	"ipfs-sharing/gui/elements"
 	"ipfs-sharing/internal"
+	"log"
 	"time"
 )
 
@@ -40,9 +41,6 @@ func MakeGui(inter *internal.Internal) *Gui {
 	peersL := elements.NewToolbarLabel("")
 
 	toolbar := widget.NewToolbar(
-		widget.NewToolbarAction(theme.ViewRefreshIcon(), func() {
-
-		}),
 		widget.NewToolbarSpacer(),
 		peersL,
 	)
@@ -77,4 +75,9 @@ func MakeGui(inter *internal.Internal) *Gui {
 
 func (gu *Gui) ShowAndRun() {
 	gu.CurW.ShowAndRun()
+
+	err := gu.Inter.Sync()
+	if err != nil {
+		log.Println(err)
+	}
 }

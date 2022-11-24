@@ -17,6 +17,7 @@ import (
 	"ipfs-sharing/gen/model"
 	. "ipfs-sharing/gen/table"
 	"ipfs-sharing/misk"
+	"ipfs-sharing/models"
 	"log"
 	"net/http"
 	"os"
@@ -44,13 +45,13 @@ func NewInternal() *Internal {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(mw)
 
+	db := NewDatabase(opt)
+
 	node, err := NewNode(context.Background(), opt.IpfsDir)
 	if err != nil {
 		log.Println(err)
 		return nil
 	}
-
-	db := NewDatabase(opt)
 
 	// libp2p http server
 	listener, _ := gostream.Listen(node.IpfsNode.PeerHost, p2phttp.DefaultP2PProtocol)
@@ -116,45 +117,37 @@ func (inter *Internal) Search(query string) error {
 	return nil
 }
 
-func (inter *Internal) Download(content model.Contents) (err error) {
-	file, err := inter.Node.CoreAPI.Unixfs().Get(context.Background(), path.New(content.Cid))
+func (inter *Internal) DownloadCid(fullPath string, fileCid string) (err error) {
+	file, err := inter.Node.CoreAPI.Unixfs().Get(context.Background(), path.New(fileCid))
 	if err != nil {
 		return
 	}
 
-	savePath := filepath.Join(inter.Opt.ShareDir, content.Name)
-
-	err = files.WriteTo(file, savePath)
+	err = files.WriteTo(file, fullPath)
 	if err != nil {
 		return
+	}
+
+	err = inter.Node.GC()
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (inter *Internal) Download(content model.Contents) (err error) {
+
+	savePath := filepath.Join(inter.Opt.ShareDir, *content.Dir, content.Name)
+
+	err = inter.DownloadCid(savePath, content.Cid)
+	if err != nil {
+		return err
 	}
 
 	log.Println("Downloaded CID", content.Cid)
 
 	return
-}
-
-func (inter *Internal) DownloadContent(content model.Contents) error {
-
-	if content.Cid == "" { // if dir
-		children, err := inter.GetChildren(content.From, content.ID)
-		if err != nil {
-			return err
-		}
-		for _, child := range children {
-			err = inter.DownloadContent(child)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		err := inter.Download(content)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (inter *Internal) PostJson(url string, structData interface{}) (*http.Response, error) {
@@ -194,12 +187,29 @@ func (inter *Internal) SearchMyContent(name string) (model.Contents, error) {
 		WHERE(Contents.Name.LIKE(String("%" + name + "%")))
 
 	var content model.Contents
-	err := stmt.Query(inter.DB.DB, &content)
+	err := stmt.Query(inter.DB.Conn, &content)
 	if err != nil {
 		return content, err
 	}
 
 	return content, nil
+}
+
+func (inter *Internal) GetChildrenRecursive(id int32, destination *[]model.Contents) error {
+	contents, err := inter.GetChildrenContents(id)
+	if err != nil {
+		return err
+	}
+	*destination = append(*destination, contents...)
+
+	for _, cont := range contents {
+		err = inter.GetChildrenRecursive(cont.ID, destination)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
@@ -213,7 +223,7 @@ func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
 		WHERE(parentIdExpression)
 
 	var contents []model.Contents
-	err := stmt.Query(inter.DB.DB, &contents)
+	err := stmt.Query(inter.DB.Conn, &contents)
 	if err != nil {
 		return nil, err
 	}
@@ -221,9 +231,9 @@ func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
 	return contents, nil
 }
 
-func (inter *Internal) GetChildren(address string, id int32) (contents []model.Contents, err error) {
+func (inter *Internal) GetChildren(address string, id int32, isRecursive bool) (contents []model.Contents, err error) {
 
-	r, err := inter.PostJson(fmt.Sprint(address, "/content/children?id=", id), nil)
+	r, err := inter.PostJson(fmt.Sprint(address, "/content/children?id=", id, "&recursive=", fmt.Sprintf("%t", isRecursive)), nil)
 	if err != nil {
 		return
 	}
@@ -239,4 +249,28 @@ func (inter *Internal) GetChildren(address string, id int32) (contents []model.C
 	}
 
 	return
+}
+
+func (inter *Internal) Update() {
+	r, err := inter.PostJson(misk.CheckUpdateUrl, nil)
+	if err != nil {
+		return
+	}
+
+	var update models.Update
+	err = json.NewDecoder(r.Body).Decode(&update)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if update.Version <= misk.Version {
+		return
+	}
+
+	updateFilePath := filepath.Join(inter.Opt.ShareDir, "ipfs-sharing.zip")
+	err = inter.DownloadCid(updateFilePath, update.Cid)
+	if err != nil {
+		return
+	}
 }

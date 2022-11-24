@@ -33,7 +33,7 @@ func (inter *Internal) recursiveScan(dirPath string, parentID *int32, scannedIDs
 			LIMIT(1)
 
 		content := model.Contents{}
-		err := stmt.Query(inter.DB.DB, &content)
+		err := stmt.Query(inter.DB.Conn, &content)
 		if err != nil && err != qrm.ErrNoRows {
 			return err
 		}
@@ -50,7 +50,7 @@ func (inter *Internal) recursiveScan(dirPath string, parentID *int32, scannedIDs
 
 func (inter *Internal) recursiveAdd(dirPath string, parentID *int32, dirEntry os.DirEntry) error {
 	fullPath := filepath.Join(dirPath, dirEntry.Name())
-
+	relativeDir := dirPath[len(inter.Opt.ShareDir):]
 	var err error
 
 	newCid := cid.Cid{}
@@ -60,7 +60,7 @@ func (inter *Internal) recursiveAdd(dirPath string, parentID *int32, dirEntry os
 			return err
 		}
 	}
-	content := models.NewContent(dirEntry.Name(), newCid.String(), parentID, inter.ID, fullPath, models.ContentStatusSaved)
+	content := models.NewContent(dirEntry.Name(), newCid.String(), parentID, inter.ID, &relativeDir, models.ContentStatusSaved)
 
 	err = inter.DB.InsertContent(&content)
 	if err != nil {
@@ -82,7 +82,7 @@ func (inter *Internal) delete(scannedIDs []int32) error {
 	deleteStmt := Contents.DELETE().WHERE(RawInt("id").NOT_IN(InInt(scannedIDs)...)).
 		RETURNING(Contents.AllColumns)
 
-	err := deleteStmt.Query(inter.DB.DB, &deletedContents)
+	err := deleteStmt.Query(inter.DB.Conn, &deletedContents)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (inter *Internal) delete(scannedIDs []int32) error {
 			WHERE(Contents.Cid.EQ(String(content.Cid))).
 			LIMIT(1)
 
-		err = stmt.Query(inter.DB.DB, &model.Contents{})
+		err = stmt.Query(inter.DB.Conn, &model.Contents{})
 		if err != nil && err != qrm.ErrNoRows {
 			return err
 		}

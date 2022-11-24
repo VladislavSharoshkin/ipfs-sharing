@@ -6,9 +6,8 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"ipfs-sharing/internal"
+	"ipfs-sharing/misk"
 	"log"
-	"os/exec"
-	"runtime"
 )
 
 type DashboardWindow struct {
@@ -19,17 +18,11 @@ type DashboardWindow struct {
 func NewDashboardWindow(inter *internal.Internal) *DashboardWindow {
 
 	addressL := widget.NewMultiLineEntry()
-	addressL.Text = "My address: " + inter.Node.IpfsNode.Identity.String()
+	addressL.Text = misk.SPrintValues("My address:", inter.Node.IpfsNode.Identity.String(), "\n",
+		"Version", misk.Version)
 
 	shareB := widget.NewButtonWithIcon("Open share folder", theme.FolderOpenIcon(), func() {
-		cmd := "open"
-		if runtime.GOOS == "windows" {
-			cmd = "explorer"
-		}
-		err := exec.Command(cmd, inter.Opt.ShareDir).Start()
-		if err != nil {
-			log.Println(err)
-		}
+		misk.OpenFolder(inter.Opt.ShareDir)
 	})
 
 	updateShareB := widget.NewButtonWithIcon("Scan share folder", theme.ViewRefreshIcon(), func() {
@@ -39,7 +32,11 @@ func NewDashboardWindow(inter *internal.Internal) *DashboardWindow {
 		}
 	})
 
-	cont := container.NewVBox(addressL, shareB, updateShareB)
+	checkUpdatesB := widget.NewButton("Check updates", func() {
+		inter.Update()
+	})
+
+	cont := container.NewVBox(addressL, shareB, updateShareB, checkUpdatesB)
 
 	return &DashboardWindow{cont, inter}
 }

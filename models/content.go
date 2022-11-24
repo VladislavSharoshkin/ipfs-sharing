@@ -18,7 +18,7 @@ func NewContent(
 	Cid string,
 	parentID *int32,
 	From string,
-	Path string,
+	Dir *string,
 	Status ContentStatus,
 ) model.Contents {
 
@@ -29,7 +29,7 @@ func NewContent(
 		ParentID:  parentID,
 		CreatedAt: now,
 		From:      From,
-		Path:      Path,
+		Dir:       Dir,
 		Status:    string(Status),
 	}
 }

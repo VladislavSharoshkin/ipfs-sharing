@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
@@ -43,7 +44,7 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 		},
 		func(uid string, branch bool, node fyne.CanvasObject) {
 			content := sw.TreeData[uid].Content
-			node.(*widget.Label).SetText(misk.SPrintValues(content.Status, content.Name))
+			node.(*widget.Label).SetText(content.Name)
 		},
 	)
 	var selectedContent model.Contents
@@ -65,7 +66,7 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 				return
 			}
 		} else {
-			children, err = sw.Inter.GetChildren(selectedNode.Content.From, selectedNode.Content.ID)
+			children, err = sw.Inter.GetChildren(selectedNode.Content.From, selectedNode.Content.ID, false)
 			if err != nil {
 				return
 			}
@@ -88,7 +89,7 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 
 		switch searchType {
 		case "cid":
-			children, err := sw.Inter.GetChildren(searchE.Text, 0)
+			children, err := sw.Inter.GetChildren(searchE.Text, 0, false)
 			if err != nil {
 				return
 			}
@@ -109,17 +110,26 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 	})
 	searchContainer := container.NewBorder(nil, nil, nil, searchButton, searchE)
 
-	toolbar := widget.NewToolbar(
-		widget.NewToolbarAction(theme.DownloadIcon(), func() {
+	menuC := container.NewHBox(
+		widget.NewButton("Download", func() {
 			err := inter.Download(selectedContent)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 		}),
+		widget.NewButton("Open browser", func() {
+			misk.OpenBrowser(fmt.Sprint("https://ipfs.io/ipfs/", selectedContent.Cid))
+		}),
+		widget.NewButton("Open folder", func() {
+			misk.OpenFolder(*selectedContent.Dir)
+		}),
+		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+
+		}),
 	)
 
-	sw.Cont = container.NewBorder(searchContainer, toolbar, nil, nil, sw.Tree)
+	sw.Cont = container.NewBorder(searchContainer, menuC, nil, nil, sw.Tree)
 
 	return &sw
 }

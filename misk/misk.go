@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/mr-tron/base58"
+	"log"
 	"math/rand"
+	"os/exec"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -60,4 +63,33 @@ func RandomBytes(len int) []byte {
 
 func RandomString() string {
 	return base58.Encode(RandomBytes(32))
+}
+
+func OpenBrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func OpenFolder(dir string) {
+	cmd := "open"
+	if runtime.GOOS == "windows" {
+		cmd = "explorer"
+	}
+	err := exec.Command(cmd, dir).Start()
+	if err != nil {
+		log.Println(err)
+	}
 }

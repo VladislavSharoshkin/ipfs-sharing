@@ -1,11 +1,18 @@
 package models
 
-type Message struct {
-	FromID string
-	ToID   string
-	Text   string
-}
+import (
+	"ipfs-sharing/gen/model"
+	"time"
+)
 
-func NewMessage(FromID string, ToID string, Text string) Message {
-	return Message{FromID, ToID, Text}
+type MessageStatus string
+
+const (
+	MessageStatusSent ContentStatus = "sent"
+	MessageStatusRead               = "read"
+)
+
+func NewMessage(FromID string, ToID string, Text string) model.Messages {
+	now := time.Now().UTC().String()
+	return model.Messages{Text: Text, From: FromID, To: ToID, CreatedAt: now}
 }

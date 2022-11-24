@@ -3,8 +3,11 @@ package controllers
 import (
 	"encoding/json"
 	"github.com/anacrolix/log"
+	"github.com/go-jet/jet/v2/qrm"
 	iface "github.com/ipfs/interface-go-ipfs-core"
 	"ipfs-sharing/gen/model"
+	"ipfs-sharing/models"
+	"ipfs-sharing/services"
 	"net/http"
 	"strconv"
 )
@@ -17,6 +20,18 @@ func (control *Controller) ContentSearchAnswer(w http.ResponseWriter, r *http.Re
 		return
 	}
 	content.From = r.RemoteAddr
+	content.Status = models.ContentStatusStopped
+
+	var myContent model.Contents
+	err = control.inter.DB.FirstByCid(content.Cid).
+		Query(control.inter.DB.Conn, &myContent)
+	if err != nil && err != qrm.ErrNoRows {
+		return
+	}
+	if myContent.ID != 0 {
+		content.Status = myContent.Status
+	}
+
 	control.gu.SearchW.TreeAdd(content)
 	log.Println("Searched", content.Name, content.Cid)
 }
@@ -36,11 +51,12 @@ func (control *Controller) SearchDht(r iface.PubSubMessage) {
 
 func (control *Controller) GetChildren(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
+	isRecursive, _ := strconv.ParseBool(r.URL.Query().Get("recursive"))
 
-	contents, err := control.inter.GetChildrenContents(int32(id))
+	children, err := services.GetChildren(control.inter, int32(id), isRecursive)
 	if err != nil {
-		log.Println(err)
+		return
 	}
 
-	control.Respond(w, contents)
+	control.Respond(w, children)
 }

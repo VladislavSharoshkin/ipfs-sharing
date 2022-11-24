@@ -6,7 +6,7 @@ CREATE TABLE "contents" (
     "name"	TEXT NOT NULL,
     "cid"	TEXT NOT NULL,
     "parent_id"	INTEGER,
-    "path" TEXT NOT NULL,
+    "dir" TEXT,
     "status" TEXT NOT NULL,
     "from" TEXT NOT NULL,
     "created_at" TEXT NOT NULL,
@@ -18,6 +18,7 @@ CREATE TABLE "messages" (
     "text"	TEXT NOT NULL,
     "from"	TEXT NOT NULL,
     "to" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
     "created_at" TEXT NOT NULL,
     PRIMARY KEY("id" AUTOINCREMENT)
 );

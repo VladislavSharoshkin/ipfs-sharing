@@ -17,6 +17,7 @@ func main() {
 	http.HandleFunc("/search/answer", control.ContentSearchAnswer)
 	http.HandleFunc("/content/children", control.GetChildren)
 	http.HandleFunc("/message/new", control.NewMessage)
+	http.HandleFunc("/update/check", control.CheckUpdate)
 	go func() {
 		for {
 			mes, err := inter.Sub.Next(context.Background())

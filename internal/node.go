@@ -9,7 +9,9 @@ import (
 	"github.com/ipfs/interface-go-ipfs-core/options"
 	"github.com/ipfs/kubo/config"
 	"github.com/ipfs/kubo/core"
+	"github.com/ipfs/kubo/core/commands/cmdenv"
 	"github.com/ipfs/kubo/core/coreapi"
+	"github.com/ipfs/kubo/core/corerepo"
 	"github.com/ipfs/kubo/core/node/libp2p"
 	"github.com/ipfs/kubo/plugin/loader"
 	"github.com/ipfs/kubo/repo/fsrepo"
@@ -47,7 +49,7 @@ func NewNode(ctx context.Context, repoPath string) (*Node, error) {
 
 	nodeOptions := &core.BuildCfg{
 		Online:  true,
-		Routing: libp2p.DHTClientOption, // DHTOption
+		Routing: libp2p.DHTClientOption,
 		Repo:    repo,
 		ExtraOpts: map[string]bool{
 			"pubsub": true,
@@ -95,8 +97,6 @@ func (nod *Node) Upload(dir string) (cid.Cid, error) {
 	if err != nil {
 		return cid.Cid{}, err
 	}
-	//slf := files.NewSliceDirectory([]files.DirEntry{files.FileEntry(filepath.Base(dir), sf)})
-	//reader := files.NewMultiFileReader(slf, true)
 
 	opts := []options.UnixfsAddOption{
 		options.Unixfs.Pin(true),
@@ -105,7 +105,6 @@ func (nod *Node) Upload(dir string) (cid.Cid, error) {
 		options.Unixfs.Nocopy(true),
 	}
 
-	// filestore.CorruptReferenceError
 	add, err := nod.CoreAPI.Unixfs().Add(context.Background(), sf, opts...)
 	if err != nil {
 		return cid.Cid{}, err
@@ -116,4 +115,15 @@ func (nod *Node) Upload(dir string) (cid.Cid, error) {
 
 func (nod *Node) Delete(cid cid.Cid) error {
 	return nod.IpfsNode.Filestore.DeleteBlock(context.Background(), cid)
+}
+
+func (nod *Node) GC() (err error) {
+	n, err := cmdenv.GetNode(nod.IpfsNode)
+	if err != nil {
+		return
+	}
+
+	corerepo.GarbageCollectAsync(n, context.Background())
+
+	return
 }
