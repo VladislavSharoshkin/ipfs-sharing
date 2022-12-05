@@ -10,7 +10,9 @@ import (
 	"ipfs-sharing/gen/model"
 	"ipfs-sharing/internal"
 	"ipfs-sharing/misk"
+	"ipfs-sharing/models"
 	"log"
+	"path/filepath"
 )
 
 type SearchWindow struct {
@@ -44,12 +46,33 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 		},
 		func(uid string, branch bool, node fyne.CanvasObject) {
 			content := sw.TreeData[uid].Content
-			node.(*widget.Label).SetText(content.Name)
+			node.(*widget.Label).SetText(models.ContentToString(content))
 		},
 	)
 	var selectedContent model.Contents
+	menuC := container.NewHBox(
+		widget.NewButton("Download", func() {
+			err := inter.Download(selectedContent)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}),
+		widget.NewButton("Open browser", func() {
+			misk.OpenBrowser(fmt.Sprint("https://ipfs.io/ipfs/", selectedContent.Cid))
+		}),
+		widget.NewButton("Open folder", func() {
+			misk.OpenFolder(filepath.Join(inter.Opt.ShareDir, selectedContent.Dir))
+		}),
+		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+
+		}),
+	)
+	menuC.Hidden = true
+
 	sw.Tree.OnSelected = func(uid widget.TreeNodeID) {
 		selectedContent = sw.TreeData[uid].Content
+		menuC.Hidden = false
 	}
 
 	sw.Tree.OnBranchOpened = func(uid widget.TreeNodeID) {
@@ -60,13 +83,13 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 
 		var err error
 		var children []model.Contents
-		if selectedNode.Content.From == inter.ID {
+		if selectedNode.Content.Status != "" {
 			children, err = inter.GetChildrenContents(selectedNode.Content.ID)
 			if err != nil {
 				return
 			}
 		} else {
-			children, err = sw.Inter.GetChildren(selectedNode.Content.From, selectedNode.Content.ID, false)
+			children, err = sw.Inter.Hc.GetChildren(selectedNode.Content.From, selectedNode.Content.ID, false)
 			if err != nil {
 				return
 			}
@@ -89,7 +112,7 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 
 		switch searchType {
 		case "cid":
-			children, err := sw.Inter.GetChildren(searchE.Text, 0, false)
+			children, err := sw.Inter.Hc.GetChildren(searchE.Text, 0, false)
 			if err != nil {
 				return
 			}
@@ -109,25 +132,6 @@ func NewSearchWindow(inter *internal.Internal) *SearchWindow {
 		}
 	})
 	searchContainer := container.NewBorder(nil, nil, nil, searchButton, searchE)
-
-	menuC := container.NewHBox(
-		widget.NewButton("Download", func() {
-			err := inter.Download(selectedContent)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-		}),
-		widget.NewButton("Open browser", func() {
-			misk.OpenBrowser(fmt.Sprint("https://ipfs.io/ipfs/", selectedContent.Cid))
-		}),
-		widget.NewButton("Open folder", func() {
-			misk.OpenFolder(*selectedContent.Dir)
-		}),
-		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-
-		}),
-	)
 
 	sw.Cont = container.NewBorder(searchContainer, menuC, nil, nil, sw.Tree)
 

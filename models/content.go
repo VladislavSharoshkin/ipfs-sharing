@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"ipfs-sharing/gen/model"
 	"time"
 )
@@ -18,7 +19,7 @@ func NewContent(
 	Cid string,
 	parentID *int32,
 	From string,
-	Dir *string,
+	Dir string,
 	Status ContentStatus,
 ) model.Contents {
 
@@ -32,4 +33,8 @@ func NewContent(
 		Dir:       Dir,
 		Status:    string(Status),
 	}
+}
+
+func ContentToString(cont model.Contents) string {
+	return fmt.Sprint("(", cont.Status, ") ", cont.Name)
 }

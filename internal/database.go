@@ -4,11 +4,13 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"github.com/go-jet/jet/v2/qrm"
 	. "github.com/go-jet/jet/v2/sqlite"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 	"ipfs-sharing/gen/model"
 	. "ipfs-sharing/gen/table"
+	"ipfs-sharing/models"
 	"log"
 )
 
@@ -51,6 +53,32 @@ func NewDatabase(opt *Options) *Database {
 	return &Database{db}
 }
 
+func (db *Database) SmtpByDirAndName(name string, dir string) SelectStatement {
+	smtp := Contents.SELECT(Bool(false)).
+		WHERE(Contents.Name.EQ(String(name)).AND(Contents.Dir.EQ(String(dir))))
+
+	return smtp
+}
+
+func (db *Database) SmtpUnfinishedDownloads() SelectStatement {
+	smtp := Contents.SELECT(Contents.AllColumns).
+		WHERE(Contents.Status.EQ(String(models.ContentStatusDownloading)))
+
+	return smtp
+}
+
+func (db *Database) IsExist(smtp SelectStatement) (isExist bool, err error) {
+	err = smtp.Query(db.Conn, &model.Contents{})
+	if err != nil && err != qrm.ErrNoRows {
+		return
+	}
+	if err == nil {
+		isExist = true
+	}
+
+	return isExist, nil
+}
+
 func (db *Database) InsertContent(content *model.Contents) error {
 
 	insertStmt := Contents.
@@ -63,28 +91,44 @@ func (db *Database) InsertContent(content *model.Contents) error {
 	return err
 }
 
-func (db *Database) Insert(data interface{}) error {
+func (db *Database) Query(stmt Statement, destination interface{}) error {
+	return stmt.Query(db.Conn, destination)
+}
+
+func (db *Database) Save(data interface{}) error {
 
 	var allColumns ColumnList
 	var mutableColumns ColumnList
 	var table Table
+	insert := true
+	var id int32
 
 	switch v := data.(type) {
 	case *model.Contents:
 		table = Contents
 		allColumns = Contents.AllColumns
 		mutableColumns = Contents.MutableColumns
+		id = v.ID
 	case *model.Messages:
 		table = Messages
 		allColumns = Messages.AllColumns
 		mutableColumns = Messages.MutableColumns
+		id = v.ID
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		log.Fatalln("I don't know about type %T!\n", v)
 	}
 
-	insertStmt := table.INSERT(mutableColumns).MODEL(data).RETURNING(allColumns)
+	if id != 0 {
+		insert = false
+	}
 
-	err := insertStmt.Query(db.Conn, data)
+	var stmt Statement
+	stmt = table.UPDATE(mutableColumns).MODEL(data).RETURNING(allColumns).WHERE(RawInt("id").EQ(Int32(id)))
+	if insert {
+		stmt = table.INSERT(mutableColumns).MODEL(data).RETURNING(allColumns)
+	}
+
+	err := stmt.Query(db.Conn, data)
 
 	return err
 }
@@ -182,7 +226,7 @@ func (db *Database) ByID(id int32, data interface{}) error {
 		table = Messages
 		allColumns = Messages.AllColumns
 	default:
-		fmt.Printf("I don't know about type %T!\n", v)
+		log.Fatalln("I don't know about type %T!\n", v)
 	}
 
 	insertStmt := table.SELECT(allColumns).WHERE(RawInt("id").EQ(Int32(id)))
@@ -216,4 +260,57 @@ func (db *Database) FirstByCid(contentCid string) SelectStatement {
 		LIMIT(1)
 
 	return stmt
+}
+
+func (db *Database) GetContentsDependencies(id int32) (contents []model.Contents, err error) {
+	subordinates := CTE("subordinates")
+	subordinates2 := CTE("subordinates2")
+
+	stmt := WITH_RECURSIVE(
+		subordinates.AS(
+			SELECT(
+				Contents.AllColumns,
+			).FROM(
+				Contents,
+			).WHERE(
+				Contents.ID.EQ(Int32(id)),
+			).UNION(
+				SELECT(
+					Contents.AllColumns,
+				).FROM(
+					Contents.
+						INNER_JOIN(subordinates, Contents.ID.From(subordinates).EQ(Contents.ParentID)),
+				),
+			),
+		),
+		subordinates2.AS(
+			SELECT(
+				Contents.AllColumns,
+			).FROM(
+				Contents,
+			).WHERE(
+				Contents.ID.EQ(Int32(id)),
+			).UNION(
+				SELECT(
+					Contents.AllColumns,
+				).FROM(
+					Contents.
+						INNER_JOIN(subordinates2, Contents.ParentID.From(subordinates2).EQ(Contents.ID)),
+				),
+			),
+		),
+	)(
+		SELECT(
+			subordinates.AllColumns(),
+		).FROM(
+			subordinates,
+		).UNION(SELECT(
+			subordinates2.AllColumns(),
+		).FROM(
+			subordinates2,
+		)),
+	)
+
+	err = stmt.Query(db.Conn, &contents)
+	return
 }

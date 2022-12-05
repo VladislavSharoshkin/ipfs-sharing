@@ -12,5 +12,6 @@ type Messages struct {
 	Text      string
 	From      string
 	To        string
+	Status    string
 	CreatedAt string
 }

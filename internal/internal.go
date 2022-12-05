@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,7 +28,7 @@ type Internal struct {
 	Node    *Node
 	DB      *Database
 	Sub     iface.PubSubSubscription
-	Cl      *http.Client
+	Hc      *HttpClient
 	TorrSes *torrent.Session
 	ID      string
 }
@@ -74,9 +73,7 @@ func NewInternal() *Internal {
 		return nil
 	}
 
-	tr := &http.Transport{}
-	tr.RegisterProtocol("libp2p", p2phttp.NewTransport(node.IpfsNode.PeerHost))
-	cl := &http.Client{Transport: tr}
+	hc := NewHttpClient(node.IpfsNode.PeerHost)
 
 	torConfig := torrent.DefaultConfig
 	torConfig.DataDir = opt.ShareDir
@@ -103,7 +100,7 @@ func NewInternal() *Internal {
 	//	}
 	//}
 
-	internal := Internal{opt, node, db, sub, cl, torrSes, node.IpfsNode.Identity.String()}
+	internal := Internal{opt, node, db, sub, hc, torrSes, node.IpfsNode.Identity.String()}
 	return &internal
 }
 
@@ -138,29 +135,58 @@ func (inter *Internal) DownloadCid(fullPath string, fileCid string) (err error) 
 
 func (inter *Internal) Download(content model.Contents) (err error) {
 
-	savePath := filepath.Join(inter.Opt.ShareDir, *content.Dir, content.Name)
-
-	err = inter.DownloadCid(savePath, content.Cid)
+	r, err := inter.Hc.PostJson(fmt.Sprint(content.From, "/content/dependencies?id=", content.ID), nil)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Downloaded CID", content.Cid)
+	var contents []model.Contents
+	err = json.NewDecoder(r.Body).Decode(&contents)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	oldIDs := make(map[int32]int32)
+	for i, cont := range contents {
+		isExist := false
+		isExist, err = inter.DB.IsExist(inter.DB.SmtpByDirAndName(cont.Name, cont.Dir))
+		if err != nil {
+			return err
+		}
+		if isExist {
+			continue
+		}
+
+		oldID := cont.ID
+		cont.ID = 0
+		cont.Status = models.ContentStatusDownloading
+
+		var parentContent model.Contents
+		if cont.ParentID != nil {
+			newID := oldIDs[*cont.ParentID]
+			cont.ParentID = &newID
+
+			err = inter.DB.ByID(*cont.ParentID, &parentContent)
+			if err != nil {
+				return err
+			}
+		}
+
+		cont.Dir = filepath.Join(parentContent.Dir, parentContent.Name)
+
+		err = inter.DB.Save(&cont)
+		if err != nil {
+			return err
+		}
+
+		oldIDs[oldID] = cont.ID
+		contents[i] = cont
+	}
+
+	inter.StartDownloads(contents)
 
 	return
-}
-
-func (inter *Internal) PostJson(url string, structData interface{}) (*http.Response, error) {
-	postBody, err := json.Marshal(structData)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := inter.Cl.Post("libp2p://"+url, "application/json", bytes.NewBuffer(postBody))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, err
 }
 
 func (inter *Internal) Status() string {
@@ -231,28 +257,8 @@ func (inter *Internal) GetChildrenContents(id int32) ([]model.Contents, error) {
 	return contents, nil
 }
 
-func (inter *Internal) GetChildren(address string, id int32, isRecursive bool) (contents []model.Contents, err error) {
-
-	r, err := inter.PostJson(fmt.Sprint(address, "/content/children?id=", id, "&recursive=", fmt.Sprintf("%t", isRecursive)), nil)
-	if err != nil {
-		return
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&contents)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	for i, _ := range contents {
-		contents[i].From = address
-	}
-
-	return
-}
-
 func (inter *Internal) Update() {
-	r, err := inter.PostJson(misk.CheckUpdateUrl, nil)
+	r, err := inter.Hc.PostJson(misk.CheckUpdateUrl, nil)
 	if err != nil {
 		return
 	}
@@ -273,4 +279,50 @@ func (inter *Internal) Update() {
 	if err != nil {
 		return
 	}
+}
+
+func (inter *Internal) DownloadContent(content model.Contents) {
+	fullDir := filepath.Join(inter.Opt.ShareDir, content.Dir)
+	os.MkdirAll(fullDir, os.ModePerm)
+
+	fullPath := filepath.Join(fullDir, content.Name)
+
+	err := inter.DownloadCid(fullPath, content.Cid)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	uploadedCid, err := inter.Node.Upload(fullPath)
+
+	content.Cid = uploadedCid
+	content.Status = string(models.ContentStatusSaved)
+
+	err = inter.DB.Save(&content)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (inter *Internal) StartDownloads(contents []model.Contents) {
+	go func() {
+		for _, cont := range contents {
+			inter.DownloadContent(cont)
+		}
+	}()
+}
+
+func (inter *Internal) StartUnfinishedDownloads() (err error) {
+
+	smtp := inter.DB.SmtpUnfinishedDownloads()
+
+	var contents []model.Contents
+	err = inter.DB.Query(smtp, &contents)
+	if err != nil {
+		return
+	}
+
+	inter.StartDownloads(contents)
+
+	return
 }

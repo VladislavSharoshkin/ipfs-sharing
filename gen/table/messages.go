@@ -21,6 +21,7 @@ type messagesTable struct {
 	Text      sqlite.ColumnString
 	From      sqlite.ColumnString
 	To        sqlite.ColumnString
+	Status    sqlite.ColumnString
 	CreatedAt sqlite.ColumnString
 
 	AllColumns     sqlite.ColumnList
@@ -66,9 +67,10 @@ func newMessagesTableImpl(schemaName, tableName, alias string) messagesTable {
 		TextColumn      = sqlite.StringColumn("text")
 		FromColumn      = sqlite.StringColumn("from")
 		ToColumn        = sqlite.StringColumn("to")
+		StatusColumn    = sqlite.StringColumn("status")
 		CreatedAtColumn = sqlite.StringColumn("created_at")
-		allColumns      = sqlite.ColumnList{IDColumn, TextColumn, FromColumn, ToColumn, CreatedAtColumn}
-		mutableColumns  = sqlite.ColumnList{TextColumn, FromColumn, ToColumn, CreatedAtColumn}
+		allColumns      = sqlite.ColumnList{IDColumn, TextColumn, FromColumn, ToColumn, StatusColumn, CreatedAtColumn}
+		mutableColumns  = sqlite.ColumnList{TextColumn, FromColumn, ToColumn, StatusColumn, CreatedAtColumn}
 	)
 
 	return messagesTable{
@@ -79,6 +81,7 @@ func newMessagesTableImpl(schemaName, tableName, alias string) messagesTable {
 		Text:      TextColumn,
 		From:      FromColumn,
 		To:        ToColumn,
+		Status:    StatusColumn,
 		CreatedAt: CreatedAtColumn,
 
 		AllColumns:     allColumns,

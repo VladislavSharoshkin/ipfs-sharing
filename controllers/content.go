@@ -42,7 +42,7 @@ func (control *Controller) SearchDht(r iface.PubSubMessage) {
 		return
 	}
 	control.gu.SearchW.TreeAdd(content)
-	_, err = control.inter.PostJson(r.From().String()+"/search/answer", content)
+	_, err = control.inter.Hc.PostJson(r.From().String()+"/search/answer", content)
 	if err != nil {
 		log.Println(err)
 		return
@@ -59,4 +59,14 @@ func (control *Controller) GetChildren(w http.ResponseWriter, r *http.Request) {
 	}
 
 	control.Respond(w, children)
+}
+
+func (control *Controller) GetDependencies(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
+	contents, err := control.inter.DB.GetContentsDependencies(int32(id))
+	if err != nil {
+		return
+	}
+
+	control.Respond(w, contents)
 }

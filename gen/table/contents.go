@@ -21,9 +21,9 @@ type contentsTable struct {
 	Name      sqlite.ColumnString
 	Cid       sqlite.ColumnString
 	ParentID  sqlite.ColumnInteger
-	Dir       sqlite.ColumnString
 	Status    sqlite.ColumnString
 	From      sqlite.ColumnString
+	Dir       sqlite.ColumnString
 	CreatedAt sqlite.ColumnString
 
 	AllColumns     sqlite.ColumnList
@@ -69,12 +69,12 @@ func newContentsTableImpl(schemaName, tableName, alias string) contentsTable {
 		NameColumn      = sqlite.StringColumn("name")
 		CidColumn       = sqlite.StringColumn("cid")
 		ParentIDColumn  = sqlite.IntegerColumn("parent_id")
-		DirColumn       = sqlite.StringColumn("dir")
 		StatusColumn    = sqlite.StringColumn("status")
 		FromColumn      = sqlite.StringColumn("from")
+		DirColumn       = sqlite.StringColumn("dir")
 		CreatedAtColumn = sqlite.StringColumn("created_at")
-		allColumns      = sqlite.ColumnList{IDColumn, NameColumn, CidColumn, ParentIDColumn, DirColumn, StatusColumn, FromColumn, CreatedAtColumn}
-		mutableColumns  = sqlite.ColumnList{NameColumn, CidColumn, ParentIDColumn, DirColumn, StatusColumn, FromColumn, CreatedAtColumn}
+		allColumns      = sqlite.ColumnList{IDColumn, NameColumn, CidColumn, ParentIDColumn, StatusColumn, FromColumn, DirColumn, CreatedAtColumn}
+		mutableColumns  = sqlite.ColumnList{NameColumn, CidColumn, ParentIDColumn, StatusColumn, FromColumn, DirColumn, CreatedAtColumn}
 	)
 
 	return contentsTable{
@@ -85,9 +85,9 @@ func newContentsTableImpl(schemaName, tableName, alias string) contentsTable {
 		Name:      NameColumn,
 		Cid:       CidColumn,
 		ParentID:  ParentIDColumn,
-		Dir:       DirColumn,
 		Status:    StatusColumn,
 		From:      FromColumn,
+		Dir:       DirColumn,
 		CreatedAt: CreatedAtColumn,
 
 		AllColumns:     allColumns,

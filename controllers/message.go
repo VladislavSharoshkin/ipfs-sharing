@@ -14,7 +14,7 @@ func (control *Controller) NewMessage(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	err = control.inter.DB.Insert(&mes)
+	err = control.inter.DB.Save(&mes)
 	if err != nil {
 		return
 	}

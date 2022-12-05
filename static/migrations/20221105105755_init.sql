@@ -6,11 +6,12 @@ CREATE TABLE "contents" (
     "name"	TEXT NOT NULL,
     "cid"	TEXT NOT NULL,
     "parent_id"	INTEGER,
-    "dir" TEXT,
     "status" TEXT NOT NULL,
     "from" TEXT NOT NULL,
+    "dir" TEXT NOT NULL,
     "created_at" TEXT NOT NULL,
-    PRIMARY KEY("id" AUTOINCREMENT)
+    PRIMARY KEY("id" AUTOINCREMENT),
+    UNIQUE(name, parent_id)
 );
 
 CREATE TABLE "messages" (

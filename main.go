@@ -12,12 +12,14 @@ import (
 func main() {
 
 	inter := internal.NewInternal()
+
 	gu := gui.MakeGui(inter)
 	control := controllers.NewController(gu, inter)
 	http.HandleFunc("/search/answer", control.ContentSearchAnswer)
 	http.HandleFunc("/content/children", control.GetChildren)
 	http.HandleFunc("/message/new", control.NewMessage)
 	http.HandleFunc("/update/check", control.CheckUpdate)
+	http.HandleFunc("/content/dependencies", control.GetDependencies)
 	go func() {
 		for {
 			mes, err := inter.Sub.Next(context.Background())

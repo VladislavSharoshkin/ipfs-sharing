@@ -53,14 +53,14 @@ func (inter *Internal) recursiveAdd(dirPath string, parentID *int32, dirEntry os
 	relativeDir := dirPath[len(inter.Opt.ShareDir):]
 	var err error
 
-	newCid := cid.Cid{}
+	newCid := ""
 	if !dirEntry.IsDir() {
 		newCid, err = inter.Node.Upload(fullPath)
 		if err != nil {
 			return err
 		}
 	}
-	content := models.NewContent(dirEntry.Name(), newCid.String(), parentID, inter.ID, &relativeDir, models.ContentStatusSaved)
+	content := models.NewContent(dirEntry.Name(), newCid, parentID, inter.ID, relativeDir, models.ContentStatusSaved)
 
 	err = inter.DB.InsertContent(&content)
 	if err != nil {

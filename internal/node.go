@@ -9,7 +9,6 @@ import (
 	"github.com/ipfs/interface-go-ipfs-core/options"
 	"github.com/ipfs/kubo/config"
 	"github.com/ipfs/kubo/core"
-	"github.com/ipfs/kubo/core/commands/cmdenv"
 	"github.com/ipfs/kubo/core/coreapi"
 	"github.com/ipfs/kubo/core/corerepo"
 	"github.com/ipfs/kubo/core/node/libp2p"
@@ -86,16 +85,16 @@ func setupPlugins(path string) error {
 	return nil
 }
 
-func (nod *Node) Upload(dir string) (cid.Cid, error) {
+func (nod *Node) Upload(dir string) (string, error) {
 
 	fileInfo, err := os.Lstat(dir)
 	if err != nil {
-		return cid.Cid{}, err
+		return "", err
 	}
 
 	sf, err := files.NewSerialFile(dir, false, fileInfo)
 	if err != nil {
-		return cid.Cid{}, err
+		return "", err
 	}
 
 	opts := []options.UnixfsAddOption{
@@ -107,10 +106,10 @@ func (nod *Node) Upload(dir string) (cid.Cid, error) {
 
 	add, err := nod.CoreAPI.Unixfs().Add(context.Background(), sf, opts...)
 	if err != nil {
-		return cid.Cid{}, err
+		return "", err
 	}
 
-	return add.Cid(), nil
+	return add.Cid().String(), nil
 }
 
 func (nod *Node) Delete(cid cid.Cid) error {
@@ -118,12 +117,7 @@ func (nod *Node) Delete(cid cid.Cid) error {
 }
 
 func (nod *Node) GC() (err error) {
-	n, err := cmdenv.GetNode(nod.IpfsNode)
-	if err != nil {
-		return
-	}
-
-	corerepo.GarbageCollectAsync(n, context.Background())
+	corerepo.GarbageCollectAsync(nod.IpfsNode, context.Background())
 
 	return
 }

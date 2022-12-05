@@ -12,8 +12,8 @@ type Contents struct {
 	Name      string
 	Cid       string
 	ParentID  *int32
-	Dir       *string
 	Status    string
 	From      string
+	Dir       string
 	CreatedAt string
 }

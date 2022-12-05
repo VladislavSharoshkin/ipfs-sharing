@@ -10,7 +10,8 @@ func GetChildren(inter *internal.Internal, id int32, isRecursive bool) ([]model.
 	var err error
 
 	if isRecursive {
-		err = inter.GetChildrenRecursive(id, &contents)
+		//err = inter.GetChildrenRecursive(id, &contents)
+		contents, err = inter.DB.GetContentsDependencies(id)
 	} else {
 		contents, err = inter.GetChildrenContents(id)
 	}

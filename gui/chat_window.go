@@ -59,12 +59,12 @@ func NewChatWindow(inter *internal.Internal) *ChatWindow {
 	messageE := widget.NewEntry()
 	sendB := widget.NewButton("Send", func() {
 		mes := models.NewMessage(inter.ID, cw.Address, messageE.Text)
-		_, err := inter.PostJson(mes.To+"/message/new", mes)
+		_, err := inter.Hc.PostJson(mes.To+"/message/new", mes)
 		if err != nil {
 			log.Println(err)
 		}
 
-		err = inter.DB.Insert(&mes)
+		err = inter.DB.Save(&mes)
 		if err != nil {
 			return
 		}
